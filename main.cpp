@@ -46,7 +46,7 @@ Matrix4x4 Multiply(Matrix4x4& m1, const Matrix4x4& m2) {
 //逆行列
 Matrix4x4 Inverse(const Matrix4x4& m) {
 	Matrix4x4 reciprocal{ 0.0f };
-	reciprocal.m[0][0] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) +(m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1]) +
+	reciprocal.m[0][0] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1]) +
 		(m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2]) -
 		(m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1]) -
 		(m.m[0][0] * m.m[1][2] * m.m[2][1] * m.m[3][3]) -
@@ -70,7 +70,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 		(m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0]) +
 		(m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0]))) *
 		((m.m[1][1] * m.m[2][2] * m.m[3][3]) +
-		(m.m[1][2] * m.m[2][3] * m.m[3][1]) +
+			(m.m[1][2] * m.m[2][3] * m.m[3][1]) +
 			(m.m[1][3] * m.m[2][1] * m.m[3][2]) -
 			(m.m[1][3] * m.m[2][2] * m.m[3][1]) -
 			(m.m[1][2] * m.m[2][1] * m.m[3][3]) -
@@ -551,41 +551,6 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 			(m.m[0][1] * m.m[1][0] * m.m[2][2]) -
 			(m.m[0][0] * m.m[1][2] * m.m[2][1]));
 
-
-
-
-	/*reciprocal.m[3][3] = (1 / m.m[1][1] * m.m[2][2] * m.m[3][3] + m.m[1][2] * m.m[2][3] * m.m[3][1] + m.m[1][3] * m.m[2][1] * m.m[3][2] -
-		m.m[1][3] * m.m[2][2] * m.m[3][1] - m.m[1][2] * m.m[2][1] * m.m[3][3] - m.m[1][1] * m.m[2][3] * m.m[3][2] -
-		m.m[0][1] * m.m[2][2] * m.m[3][3] - m.m[0][2] * m.m[2][3] * m.m[3][1] - m.m[0][3] * m.m[2][1] * m.m[3][2] +
-		m.m[0][3] * m.m[2][2] * m.m[3][1] + m.m[0][2] * m.m[2][1] * m.m[3][3] + m.m[0][1] * m.m[2][3] * m.m[3][2] +
-		m.m[0][1] * m.m[1][2] * m.m[3][3] + m.m[0][2] * m.m[1][3] * m.m[3][1] + m.m[0][3] * m.m[1][1] * m.m[3][2] -
-		m.m[0][3] * m.m[1][2] * m.m[3][1] - m.m[0][2] * m.m[1][1] * m.m[3][3] - m.m[0][1] * m.m[1][3] * m.m[3][2] -
-		m.m[0][1] * m.m[1][2] * m.m[2][3] - m.m[0][2] * m.m[1][3] * m.m[2][1] - m.m[0][3] * m.m[1][1] * m.m[2][2] +
-		m.m[0][3] * m.m[1][2] * m.m[2][1] + m.m[0][2] * m.m[1][1] * m.m[2][3] + m.m[0][1] * m.m[1][3] * m.m[2][2] -
-		m.m[1][0] * m.m[2][2] * m.m[3][3] - m.m[1][2] * m.m[2][3] * m.m[3][0] - m.m[1][3] * m.m[2][0] * m.m[3][2] +
-		m.m[1][3] * m.m[2][2] * m.m[3][0] + m.m[1][2] * m.m[2][0] * m.m[3][3] + m.m[1][0] * m.m[2][3] * m.m[3][2] +
-		m.m[0][0] * m.m[2][2] * m.m[3][3] + m.m[0][2] * m.m[2][3] * m.m[3][0] + m.m[0][3] * m.m[2][0] * m.m[3][2] -
-		m.m[0][3] * m.m[2][2] * m.m[3][0] - m.m[0][2] * m.m[2][0] * m.m[3][3] - m.m[0][0] * m.m[2][3] * m.m[3][2] -
-		m.m[0][0] * m.m[1][2] * m.m[3][3] - m.m[0][2] * m.m[1][3] * m.m[3][0] - m.m[0][3] * m.m[1][0] * m.m[3][2] +
-		m.m[0][3] * m.m[1][2] * m.m[3][0] + m.m[0][2] * m.m[1][0] * m.m[3][3] + m.m[0][0] * m.m[1][3] * m.m[3][2] +
-		m.m[0][0] * m.m[1][2] * m.m[2][3] + m.m[0][2] * m.m[1][3] * m.m[2][0] + m.m[0][3] * m.m[1][0] * m.m[2][2] -
-		m.m[0][3] * m.m[1][2] * m.m[2][0] - m.m[0][2] * m.m[1][0] * m.m[2][3] - m.m[0][0] * m.m[1][3] * m.m[2][2] +
-		m.m[1][0] * m.m[2][1] * m.m[3][3] + m.m[1][1] * m.m[2][3] * m.m[3][0] + m.m[1][3] * m.m[2][0] * m.m[3][1] -
-		m.m[1][3] * m.m[2][1] * m.m[3][0] - m.m[1][1] * m.m[2][0] * m.m[3][3] - m.m[1][0] * m.m[2][3] * m.m[3][1] -
-		m.m[0][0] * m.m[2][1] * m.m[3][3] - m.m[0][1] * m.m[2][3] * m.m[3][0] - m.m[0][3] * m.m[2][0] * m.m[3][1] +
-		m.m[0][3] * m.m[2][1] * m.m[3][0] + m.m[0][1] * m.m[2][0] * m.m[3][3] + m.m[0][0] * m.m[2][3] * m.m[3][1] +
-		m.m[0][0] * m.m[1][1] * m.m[3][3] + m.m[0][1] * m.m[1][3] * m.m[3][0] + m.m[0][3] * m.m[1][0] * m.m[3][1] -
-		m.m[0][3] * m.m[1][1] * m.m[3][0] - m.m[0][1] * m.m[1][0] * m.m[3][3] - m.m[0][0] * m.m[1][3] * m.m[3][1] -
-		m.m[0][0] * m.m[1][1] * m.m[2][3] - m.m[0][1] * m.m[1][3] * m.m[2][0] - m.m[0][3] * m.m[1][0] * m.m[2][1] +
-		m.m[0][3] * m.m[1][1] * m.m[2][0] + m.m[0][1] * m.m[1][0] * m.m[2][3] + m.m[0][0] * m.m[1][3] * m.m[2][1] -
-		m.m[1][0] * m.m[2][1] * m.m[3][2] - m.m[1][1] * m.m[2][2] * m.m[3][0] - m.m[1][2] * m.m[2][0] * m.m[3][1] +
-		m.m[1][2] * m.m[2][1] * m.m[3][0] + m.m[1][1] * m.m[2][0] * m.m[3][2] + m.m[1][0] * m.m[2][2] * m.m[3][1] +
-		m.m[0][0] * m.m[2][1] * m.m[3][2] + m.m[0][1] * m.m[2][2] * m.m[3][0] + m.m[0][2] * m.m[2][0] * m.m[3][1] -
-		m.m[0][2] * m.m[2][1] * m.m[3][0] - m.m[0][1] * m.m[2][0] * m.m[3][2] - m.m[0][0] * m.m[2][2] * m.m[3][1] -
-		m.m[0][0] * m.m[1][1] * m.m[3][2] - m.m[0][1] * m.m[1][2] * m.m[3][0] - m.m[0][2] * m.m[1][0] * m.m[3][1] +
-		m.m[0][2] * m.m[1][1] * m.m[3][0] + m.m[0][1] * m.m[1][0] * m.m[3][2] + m.m[0][0] * m.m[1][2] * m.m[3][1] +
-		m.m[0][0] * m.m[1][1] * m.m[2][2] + m.m[0][1] * m.m[1][2] * m.m[2][0] + m.m[0][2] * m.m[1][0] * m.m[2][1] -
-		m.m[0][2] * m.m[1][1] * m.m[2][0] - m.m[0][1] * m.m[1][0] * m.m[2][2] - m.m[0][0] * m.m[1][2] * m.m[2][1]);*/
 	return reciprocal;
 }
 
@@ -614,12 +579,13 @@ Matrix4x4 MakeIdentity4x4() {
 static const int kColumnWidth = 60;
 static const int kRowHeight = 20;
 
-void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix) {
+void MatrixScreenPrintf(int x, int y, const Matrix4x4& matrix, const char* label) {
 	for (int row = 0; row < 4; ++row) {
 		for (int column = 0; column < 4; ++column) {
-			Novice::ScreenPrintf(x + column * kColumnWidth, y + row * kRowHeight, "%6.02f", matrix.m[row][column]);
+			Novice::ScreenPrintf(x + column * kColumnWidth, y + row * kRowHeight + 15, "%6.02f", matrix.m[row][column]);
 		}
 	}
+	Novice::ScreenPrintf(x, y, "%s", label);
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -672,14 +638,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓描画処理ここから
 		///
 
-		MatrixScreenPrintf(0, 0, resultAdd);
-		MatrixScreenPrintf(0, kRowHeight * 5, resultSudtract);
-		MatrixScreenPrintf(0, kRowHeight * 5 * 2, resultMtiply);
-		MatrixScreenPrintf(0, kRowHeight * 5 * 3, inverseM1);
-		MatrixScreenPrintf(0, kRowHeight * 5 * 4, inverseM2);
-		MatrixScreenPrintf(kColumnWidth * 5, 0, transposeM1);
-		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5, transposeM2);
-		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5 * 2, identity);
+		MatrixScreenPrintf(0, 0, resultAdd, "Add");
+		MatrixScreenPrintf(0, kRowHeight * 5, resultSudtract, "Sudtract");
+		MatrixScreenPrintf(0, kRowHeight * 5 * 2, resultMtiply, "Mtiply");
+		MatrixScreenPrintf(0, kRowHeight * 5 * 3, inverseM1, "inverseM1");
+		MatrixScreenPrintf(0, kRowHeight * 5 * 4, inverseM2, "inverseM2");
+		MatrixScreenPrintf(kColumnWidth * 5, 0, transposeM1, "transposeM1");
+		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5, transposeM2, "transposeM1");
+		MatrixScreenPrintf(kColumnWidth * 5, kRowHeight * 5 * 2, identity, "identity");
 
 		///
 		/// ↑描画処理ここまで
