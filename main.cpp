@@ -1,16 +1,26 @@
 #include <Novice.h>
 
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
+static const int kWindowWidth = 1280;
+static const int kWindowHeight = 720;
+
+struct Vector3 {
+	float x, y, z;
+};
+
+struct Matrix4x4 {
+	float m[4][4];
+};
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// ライブラリの初期化
-	Novice::Initialize(kWindowTitle, 1280, 720);
+	Novice::Initialize(kWindowTitle, kWindowWidth, kWindowHeight);
 
 	// キー入力結果を受け取る箱
-	char keys[256] = {0};
-	char preKeys[256] = {0};
+	char keys[256] = { 0 };
+	char preKeys[256] = { 0 };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
