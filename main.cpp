@@ -1,6 +1,7 @@
 #include <Novice.h>
 #include <cstdint>
 #include <imgui.h>
+#include<cmath>
 
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
 
@@ -27,9 +28,12 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewPojectionMatrix, cons
 	}
 
 	for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
-		float lon =  lonIndex * kLonEvery;
+		float lon = lonIndex * kLonEvery;
 
 		Vector3 a, b, c;
+		a.x = { std::cos(0) * std::sin(2 / 0) };
+		a.y = { std::sin(0) };
+		a.z = { std::cos(0 + 0) * std::sin(2 / 0) };
 	}
 }
 
