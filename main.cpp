@@ -12,6 +12,15 @@ struct Matrix4x4 {
 	float m[4][4];
 };
 
+struct Sphere {
+	Vector3 center;
+	float radius;
+};
+
+bool IsCollision(const Sphere& s1, const Sphere& s2) {
+
+}
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
