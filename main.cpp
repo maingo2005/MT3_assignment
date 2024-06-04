@@ -31,9 +31,9 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewPojectionMatrix, cons
 		float lon = lonIndex * kLonEvery;
 
 		Vector3 a, b, c;
-		a.x = { std::cos(0) * std::sin(2 / 0) };
+		/*a.x = { std::cos(0) * std::sin(2 / 0) };
 		a.y = { std::sin(0) };
-		a.z = { std::cos(0 + 0) * std::sin(2 / 0) };
+		a.z = { std::cos(0 + 0) * std::sin(2 / 0) };*/
 	}
 }
 
@@ -55,6 +55,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	// ライブラリの初期化
 	Novice::Initialize(kWindowTitle, 1280, 720);
+
+	Sphere sphere{ 0,10 };
 
 	// キー入力結果を受け取る箱
 	char keys[256] = { 0 };
