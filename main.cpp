@@ -8,6 +8,10 @@ typedef struct Matrix4x4 {
 	float m[4][4];
 }Matrix4x4;
 
+typedef struct Vector2 {
+	float x, y;
+}Vector2;
+
 typedef struct Vector3 {
 	float x, y, z;
 }Vector3;
@@ -16,6 +20,150 @@ struct Sphere {
 	Vector3 center;
 	float radius;
 };
+
+struct Line {
+	Vector3 origin;
+	Vector3 diff;
+};
+
+struct Ray {
+	Vector3 origin;
+	Vector3 diff;
+};
+
+struct Segment {
+	Vector3 origin;
+	Vector3 diff;
+};
+
+struct SphericalCoordinate {
+	float theta;
+	float phi;
+	float radius;
+};
+
+struct Camera {
+	static const int32_t klnvalidButton = -1;
+	SphericalCoordinate spherical{};
+	Vector3 center{};
+	struct {
+		Vector2 mouse{};
+		SphericalCoordinate spherical{};
+		Vector3 center{};
+		static const int32_t button;
+	}capture;
+};
+
+//マウス操作
+void Update(Camera& camera) {
+	//スクロールはいつでも
+	int32_t wheel = Novice::GetWheel();
+
+	camera.spherical.radius -= (wheel / 512.0f);
+	camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
+
+	//ほかはAlt押してなければ何もしない
+	if (!Novice::CheckHitKey(DIK_LALT)) {
+		camera.capture.button = Camera::klnvalidButton;
+		return;
+	}
+	int mouseX, mouseY;
+	if (!Novice::GetMousePosition(&mouseX, &mouseY)) {
+		assert(false);
+		return;
+	}
+	if (camera.capture.button == Camera::klnvalidButton) {
+		if (Novice::IsPressMouse(0)) {
+			camera.capture.button = 0;
+		}
+		else if (Novice::IsPressMouse(1)) {
+			camera.capture.button = 1;
+		}
+		else if (Novice::IsPressMouse(2)) {
+			camera.capture.button = 2;
+		}
+		if (camera.capture.button != Camera::klnvalidButton) {
+			camera.capture.mouse.x = float(mouseX);
+			camera.capture.mouse.y = float(mouseY);
+			camera.capture.spherical = camera.spherical;
+			camera.capture.center = camera.center;
+		}
+	}
+	else {
+		if (Novice::IsPressMouse(camera.capture.button)) {
+			Vector2 mouse{ float(mouseX),float(mouseY) };
+			Vector2 diff = Subtract(camera.capture.mouse, mouse);
+
+			//左クリック回転
+			if (camera.capture.button == 0) {
+				camera.spherical.theta = camera.capture.spherical.theta + (diff.y / 360.0f);
+				camera.spherical.phi = camera.capture.spherical.phi + (diff.x / 320.0f);
+			}
+			//右クリック拡縮
+			else if (camera.capture.button == 1) {
+				camera.spherical.radius = camera.capture.spherical.radius + ((diff.x - diff.y) / 100.0f);
+				camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
+			}
+			//中クリック移動
+			else if (camera.capture.button == 2) {
+				Matrix4x4 rotateMatrix = Multiply(MakeRotateXMatrix(camera.capture.spherical.theta), MakeRotateYMatrix(-camera.capture.spherical.phi));
+				Vector3 axisX{ 1.0f,0.0f,0.0f };
+				Vector3 axisY{ 0.0f,1.0f,0.0f };
+				Vector3 moveX = Transform(axisX, rotateMatrix);
+				Vector3 moveY = Transform(axisY, rotateMatrix);
+
+				Vector3 move = Add(Multiply(diff.x / 320.0f, moveX), Multiply(-diff.y / 360.0f, moveY));
+				camera.center = Add(camera.capture.center, move);
+			}
+		}
+		else {
+			camera.capture.button = Camera::klnvalidButton;
+		}
+	}
+}
+
+Matrix4x4 CalcViewMatrix(const Camera& camera) {
+	Vector3 offset = ToCartesian(camera.spherical);
+
+	//ToCartesianでtheta,phiが0のときにZ=-1にするため、Z軸反転を行っているのでY軸回転を逆にする
+	Matrix4x4 viewMatrix = Multiply(MakeRotateXMatrix(camera.spherical.theta), MakeRotateYMatrix(camera.spherical.phi));
+
+	viewMatrix.m[3][0] = offset.x + camera.center.x;
+	viewMatrix.m[3][1] = offset.x + camera.center.y;
+	viewMatrix.m[3][2] = offset.x + camera.center.z;
+	return lnverseAffine(viewMatrix);
+}
+
+Matrix4x4 lnverseAffine(const Matrix4x4& a) {};
+
+Vector3 ToCartesian(const Camera& camera) {};
+
+//加算
+Vector3 Add(const Vector3& v1, const Vector3& v2) {
+	Vector3 addition;
+	addition.x = v1.x + v2.x;
+	addition.y = v1.y + v2.y;
+	addition.z = v1.z + v2.z;
+	return addition;
+}
+
+
+//減算
+Vector2 Subtract(const Vector2& v1, const Vector2& v2) {
+	Vector2 subtraction;
+	subtraction.x = v1.x - v2.x;
+	subtraction.y = v1.y - v2.y;
+	return subtraction;
+}
+
+//スカラー倍
+Vector3 Multiply(float scalar, const Vector3& v) {
+	Vector3 multiplication;
+	multiplication.x = scalar * v.x;
+	multiplication.y = scalar * v.y;
+	multiplication.z = scalar * v.z;
+	return multiplication;
+}
 
 //4x4拡大縮小行列
 Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
@@ -161,7 +309,7 @@ Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
 
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
 	Matrix4x4 affine;
-	affine.m[0][0] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::sin(rotate.z))+ ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0)+ ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
+	affine.m[0][0] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::sin(rotate.z)) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
 	affine.m[0][1] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::cos(rotate.z)) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
 	affine.m[0][2] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * 0) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 1) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
 	affine.m[0][3] = 0;
@@ -210,7 +358,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 		+ (m.m[0][3] * m.m[1][2] * m.m[2][1] * m.m[3][0])
 		+ (m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0])
 		+ (m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0]))) * ((m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[1][2] * m.m[2][3] * m.m[3][1]) + (m.m[1][3] * m.m[2][1] * m.m[3][2]) - (m.m[1][3] * m.m[2][2] * m.m[3][1]) - (m.m[1][2] * m.m[2][1] * m.m[3][3]) - (m.m[1][1] * m.m[2][3] * m.m[3][2]));
-	
+
 	a.m[0][1] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1])
 		+ (m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2])
 		- (m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1])
@@ -234,7 +382,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 		+ (m.m[0][3] * m.m[1][2] * m.m[2][1] * m.m[3][0])
 		+ (m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0])
 		+ (m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0]))) * ((-m.m[0][1] * m.m[2][2] * m.m[3][3]) - (m.m[0][2] * m.m[2][3] * m.m[3][1]) - (m.m[0][3] * m.m[2][1] * m.m[3][2]) + (m.m[0][3] * m.m[2][2] * m.m[3][1]) + (m.m[0][2] * m.m[2][1] * m.m[3][3]) + (m.m[0][1] * m.m[2][3] * m.m[3][2]));
-	
+
 	a.m[0][2] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1])
 		+ (m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2])
 		- (m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1])
@@ -258,7 +406,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 		+ (m.m[0][3] * m.m[1][2] * m.m[2][1] * m.m[3][0])
 		+ (m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0])
 		+ (m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0]))) * ((m.m[0][1] * m.m[1][2] * m.m[3][3]) + (m.m[0][2] * m.m[1][3] * m.m[3][1]) + (m.m[0][3] * m.m[1][1] * m.m[3][2]) - (m.m[0][3] * m.m[1][2] * m.m[3][1]) - (m.m[0][2] * m.m[1][1] * m.m[3][3]) - (m.m[0][1] * m.m[1][3] * m.m[3][2]));
-	
+
 	a.m[0][3] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1])
 		+ (m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2])
 		- (m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1])
@@ -282,7 +430,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 		+ (m.m[0][3] * m.m[1][2] * m.m[2][1] * m.m[3][0])
 		+ (m.m[0][2] * m.m[1][1] * m.m[2][3] * m.m[3][0])
 		+ (m.m[0][1] * m.m[1][3] * m.m[2][2] * m.m[3][0]))) * ((-m.m[0][1] * m.m[1][2] * m.m[2][3]) - (m.m[0][2] * m.m[1][3] * m.m[2][1]) - (m.m[0][3] * m.m[1][1] * m.m[2][2]) + (m.m[0][3] * m.m[1][2] * m.m[2][1]) + (m.m[0][2] * m.m[1][1] * m.m[2][3]) + (m.m[0][1] * m.m[1][3] * m.m[2][2]));
-	
+
 	a.m[1][0] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1])
 		+ (m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2])
 		- (m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1])
@@ -736,6 +884,14 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 	}
 }
 
+Vector3 Project(const Vector3& v1, const Vector3& v2) {
+
+}
+
+Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
+
+}
+
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -776,15 +932,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		/// ↓更新処理ここから
 
-		Matrix4x4 cameraMatrix =MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
-		Matrix4x4 projectionMatrix =MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
-		Matrix4x4 viewportMatrix =MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
+		Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
 		/// ↑更新処理ここまで
 
