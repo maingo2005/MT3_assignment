@@ -1,8 +1,8 @@
-#include <Novice.h>
-#include<cmath>
+#include<Novice.h>
 #include <imgui.h>
-#include <algorithm>
-using namespace std;
+#include <corecrt_math.h>
+#include<cmath>
+#include"math.h"
 
 typedef struct Matrix4x4 {
 	float m[4][4];
@@ -19,12 +19,6 @@ typedef struct Vector2 {
 struct Sphere {
 	Vector3 center;
 	float radius;
-
-};
-
-struct Segment {
-	Vector3 origin;
-	Vector3 diff;
 };
 
 struct SphericalCoordinate {
@@ -33,6 +27,20 @@ struct SphericalCoordinate {
 	float radius;
 };
 
+struct Camera {
+	static const int32_t kInvalidButton = -1;
+	SphericalCoordinate spherical{};
+	Vector3 center{};
+
+	struct {
+		Vector2 mouse{};
+		SphericalCoordinate spherical{};
+		Vector3 center{};
+		int32_t button = kInvalidButton;
+	} capture;
+};
+
+//4x4拡大縮小行列
 Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
 	Matrix4x4 kakusyuku;
 	kakusyuku.m[0][0] = scale.x;
@@ -67,13 +75,13 @@ Matrix4x4 MakeRotateXMatrix(float radian) {
 	Xver.m[0][3] = 0;
 
 	Xver.m[1][0] = 0;
-	Xver.m[1][1] = cos(radian);
-	Xver.m[1][2] = sin(radian);
+	Xver.m[1][1] = std::cos(radian);
+	Xver.m[1][2] = std::sin(radian);
 	Xver.m[1][3] = 0;
 
 	Xver.m[2][0] = 0;
-	Xver.m[2][1] = sin(-radian);
-	Xver.m[2][2] = cos(radian);
+	Xver.m[2][1] = std::sin(-radian);
+	Xver.m[2][2] = std::cos(radian);
 	Xver.m[2][3] = 0;
 
 	Xver.m[3][0] = 0;
@@ -87,9 +95,9 @@ Matrix4x4 MakeRotateXMatrix(float radian) {
 //Y軸回転行列
 Matrix4x4 MakeRotateYMatrix(float radian) {
 	Matrix4x4 Yver;
-	Yver.m[0][0] = cos(radian);
+	Yver.m[0][0] = std::cos(radian);
 	Yver.m[0][1] = 0;
-	Yver.m[0][2] = sin(-radian);
+	Yver.m[0][2] = std::sin(-radian);
 	Yver.m[0][3] = 0;
 
 	Yver.m[1][0] = 0;
@@ -97,9 +105,9 @@ Matrix4x4 MakeRotateYMatrix(float radian) {
 	Yver.m[1][2] = 0;
 	Yver.m[1][3] = 0;
 
-	Yver.m[2][0] = sin(radian);
+	Yver.m[2][0] = std::sin(radian);
 	Yver.m[2][1] = 0;
-	Yver.m[2][2] = cos(radian);
+	Yver.m[2][2] = std::cos(radian);
 	Yver.m[2][3] = 0;
 
 	Yver.m[3][0] = 0;
@@ -113,13 +121,13 @@ Matrix4x4 MakeRotateYMatrix(float radian) {
 //Z軸回転行列
 Matrix4x4 MakeRotateZMatrix(float radian) {
 	Matrix4x4 Zver;
-	Zver.m[0][0] = cos(radian);
-	Zver.m[0][1] = sin(radian);
+	Zver.m[0][0] = std::cos(radian);
+	Zver.m[0][1] = std::sin(radian);
 	Zver.m[0][2] = 0;
 	Zver.m[0][3] = 0;
 
-	Zver.m[1][0] = sin(-radian);
-	Zver.m[1][1] = cos(radian);
+	Zver.m[1][0] = std::sin(-radian);
+	Zver.m[1][1] = std::cos(radian);
 	Zver.m[1][2] = 0;
 	Zver.m[1][3] = 0;
 
@@ -177,13 +185,13 @@ Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
 
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
 	Matrix4x4 affine;
-	affine.m[0][0] = scale.x * (((1 * cos(rotate.y) + 0 * 0 + 0 * sin(rotate.y) + 0 * 0) * cos(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * sin(rotate.z))+ ((1 * sin(-rotate.y) + 0 * 0 + 0 * cos(rotate.y) + 0 * 0) * 0)+ ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
-	affine.m[0][1] = scale.x * (((1 * cos(rotate.y) + 0 * 0 + 0 * sin(rotate.y) + 0 * 0) * sin(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * cos(rotate.z)) + ((1 * sin(-rotate.y) + 0 * 0 + 0 * cos(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
-	affine.m[0][2] = scale.x * (((1 * cos(rotate.y) + 0 * 0 + 0 * sin(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * 0) + ((1 * sin(-rotate.y) + 0 * 0 + 0 * cos(rotate.y) + 0 * 0) * 1) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
+	affine.m[0][0] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::sin(rotate.z))+ ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0)+ ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
+	affine.m[0][1] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::cos(rotate.z)) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
+	affine.m[0][2] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * 0) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 1) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
 	affine.m[0][3] = 0;
 
-	affine.m[1][0] = scale.y * (((0 * cos(rotate.y) + cos(rotate.x) * 0 + sin(rotate.x) * sin(rotate.y) + 0 * 0) * cos(rotate.z)) + ((0 * 0 + cos(rotate.x) * 1 + sin(rotate.x) * 0 + 0 * 0) * sin(-rotate.z)) + ((0 * sin(-rotate.y) + cos(rotate.x) * 0 + sin(rotate.x) * cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + cos(rotate.x) * 0 + sin(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[1][1] = scale.y * (((0 * cos(rotate.y) + cos(rotate.x) * 0 + sin(rotate.x) * sin(rotate.y) + 0 * 0) * sin(rotate.z)) + ((0 * 0 + cos(rotate.x) * 1 + sin(rotate.x) * 0 + 0 * 0) * cos(rotate.z)) + ((0 * sin(-rotate.y) + cos(rotate.x) * 0 + sin(rotate.x) * cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + cos(rotate.x) * 0 + sin(rotate.x) * 0 + 0 * 1) * 0));
+	affine.m[1][0] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * std::sin(-rotate.z)) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
+	affine.m[1][1] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * std::cos(rotate.z)) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
 	affine.m[1][2] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * 0) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 1) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
 	affine.m[1][3] = 0;
 
@@ -752,6 +760,7 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 		}
 	}
 }
+
 Vector3 Add(const Vector3& v1, const Vector3& v2) {
 	Vector3 result1{ 0.0f,0.0f,0.0f };
 	result1.x = v1.x + v2.x;
@@ -759,6 +768,14 @@ Vector3 Add(const Vector3& v1, const Vector3& v2) {
 	result1.z = v1.z + v2.z;
 
 	return result1;
+}
+
+Vector2 Subtract(const Vector2& v1, const Vector2& v2) {
+	Vector2 result2{ 0.0f,0.0f };
+	result2.x = v1.x - v2.x;
+	result2.y = v1.y - v2.y;
+
+	return result2;
 }
 
 Vector3 Subtract(const Vector3& v1, const Vector3& v2) {
@@ -770,24 +787,6 @@ Vector3 Subtract(const Vector3& v1, const Vector3& v2) {
 	return result2;
 }
 
-float Dot(const Vector3& v1, const Vector3& v2) {
-	float result4{ 0.0f };
-	result4 = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-
-	return result4;
-}
-Vector3 Project(const Vector3& v1, const Vector3& v2) {
-	Vector3 p{ 0.0f,0.0f,0.0f };
-	float a = Dot(v1, v2);
-	float b = Dot(v2, v2);
-	float a_waru_b = a / b;
-	p.x = (a_waru_b)*v2.x;
-	p.y = (a_waru_b)*v2.y;
-	p.z = (a_waru_b)*v2.z;
-
-	return { p.x,p.y,p.z };
-}
-
 Vector3 Multiply(float scalar, const Vector3& v) {
 	Vector3 result3{ 0.0f,0.0f,0.0f };
 	result3.x = v.x * scalar;
@@ -797,31 +796,117 @@ Vector3 Multiply(float scalar, const Vector3& v) {
 	return result3;
 }
 
-Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
-	Vector3 cp{ 0.0f,0.0f,0.0f };
-	Vector3 A = segment.origin;
-	Vector3 B = segment.diff;
+Vector3 ToCartesian(const SphericalCoordinate& spherical) {
+	float sintheta = std::sin(spherical.theta);
+	float costheta = std::cos(spherical.theta);
+	float sinphi = std::sin(spherical.phi);
+	float cosphi = std::cos(spherical.phi);
 
-	Vector3 AminusB;
-	AminusB.x = B.x - A.x;
-	AminusB.y = B.y - A.y;
-	AminusB.z = B.z - A.z;
+	float x = spherical.radius * sintheta * cosphi;
+	float y = spherical.radius * sintheta * sinphi;
+	float z = spherical.radius * costheta;
 
-	Vector3 AP;
-	AP.x = point.x - A.x;
-	AP.y = point.y - A.y;
-	AP.z = point.z - A.z;
+	return { x, y, z };
+}
 
-	float AB_AP_dot = AminusB.x * AP.x + AminusB.y * AP.y + AminusB.z * AP.z;
-	float AB_AB_dot = AminusB.x * AminusB.x + AminusB.y * AminusB.y + AminusB.z * AminusB.z;
-	float t = AB_AB_dot != 0 ? AB_AP_dot / AB_AB_dot : 0;
-	t = (t < 0.0f) ? 0.0f : (t > 1.0f) ? 1.0f : t;
+Matrix4x4 CalcViewMatrix(const Camera& camera) {
+	Vector3 offset = ToCartesian(camera.spherical);
 
-	cp.x = A.x + t * AminusB.x;
-	cp.y = A.y + t * AminusB.y;
-	cp.z = A.z + t * AminusB.z;
+	// ToCartesianでtheta,phiが0のときにZ=-1にするため、Z軸反転を行っているのでY軸回転を逆にする
+	Matrix4x4 viewMatrix =
+		Multiply(MakeRotateXMatrix(camera.spherical.theta), MakeRotateYMatrix(-camera.spherical.phi));
 
-	return cp;
+	viewMatrix.m[3][0] = offset.x + camera.center.x;
+	viewMatrix.m[3][1] = offset.y + camera.center.y;
+	viewMatrix.m[3][2] = offset.z + camera.center.z;
+
+	return Inverse(viewMatrix);
+}
+
+void Update(Camera& camera) {
+
+	// スクロールはいつでも
+	int32_t wheel = Novice::GetWheel();
+
+	camera.spherical.radius -= (wheel / 512.0f);
+	camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
+
+	// ほかはAlt押してなければ何もしない
+	if (!Novice::CheckHitKey(DIK_LALT)) {
+		camera.capture.button = Camera::kInvalidButton;
+		return;
+	}
+	int mouseX, mouseY;
+	if (!Novice::GetMousePosition(&mouseX, &mouseY)) {
+		assert(false);
+		return;
+	}
+
+	if (camera.capture.button == Camera::kInvalidButton) {
+		if (Novice::IsPressMouse(0)) {
+			camera.capture.button = 0;
+		}
+		else if (Novice::IsPressMouse(1)) {
+			camera.capture.button = 1;
+		}
+		else if (Novice::IsPressMouse(2)) {
+			camera.capture.button = 2;
+		}
+
+		if (camera.capture.button != Camera::kInvalidButton) {
+			camera.capture.mouse.x = float(mouseX);
+			camera.capture.mouse.y = float(mouseY);
+			camera.capture.spherical = camera.spherical;
+			camera.capture.center = camera.center;
+		}
+	}
+	else {
+		if (Novice::IsPressMouse(camera.capture.button)) {
+			Vector2 mouse{ float(mouseX), float(mouseY) };
+			Vector2 diff = Subtract(camera.capture.mouse, mouse);
+
+			// 左クリック回転
+			if (camera.capture.button == 0) {
+				camera.spherical.theta = camera.capture.spherical.theta + (-diff.y / 360.0f);
+				camera.spherical.phi = camera.capture.spherical.phi + (diff.x / 320.0f);
+
+				// 右クリック拡縮
+			}
+			else if (camera.capture.button == 1) {
+				camera.spherical.radius =
+					camera.capture.spherical.radius + ((diff.x - diff.y) / 100.0f);
+				camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
+
+				// 中クリック移動
+			}
+			else if (camera.capture.button == 2) {
+				Matrix4x4 rotateMatrix = Multiply(
+					MakeRotateXMatrix(camera.capture.spherical.theta),
+					MakeRotateYMatrix(-camera.capture.spherical.phi));
+				Vector3 axisX{ 1.0f, 0.0f, 0.0f };
+				Vector3 axisY{ 0.0f, 1.0f, 0.0f };
+				Vector3 moveX = Transform(axisX, rotateMatrix);
+				Vector3 moveY = Transform(axisY, rotateMatrix);
+
+				Vector3 move =
+					Add(Multiply(diff.x / 320.0f, moveX), Multiply(-diff.y / 360.0f, moveY));
+				camera.center = Add(camera.capture.center, move);
+			}
+
+		}
+		else {
+			camera.capture.button = Camera::kInvalidButton;
+		}
+	}
+}
+
+bool IsCollision(const Sphere& s1, const Sphere& s2) {
+	float dx = s1.center.x - s2.center.x;
+	float dy = s1.center.y - s2.center.y;
+	float dz = s1.center.z - s2.center.z;
+	float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+
+	return distance < (s1.radius + s2.radius);
 }
 
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
@@ -838,21 +923,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	Segment segment{
-	  {-2.0f, -1.0f, 0.0f},
-	  {3.0f,  2.0f,  2.0f}
+	Sphere spheres[2]{
+	  {.center{0.0f, 0.0f, 0.0f}, .radius{0.6f}},
+	  {.center{0.8f, 0.0f, 1.0f}, .radius{0.4f}}
 	};
+	Vector3 point{ -1.5f, 0.6f, 0.6f };
 
-	Vector3 point{ -1.5f, 0.6f,0.6f };
+	Camera camera{};
+	camera.spherical.theta = 0.26f;
+	camera.spherical.radius = 7.0f;
 
-	Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
-	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
-
-	Vector3 SpherecameraRotate{ 0.26f,0.0f,0.0f };
-	Vector3 SpherecameraTranslate{ 1.13f,1.9f,-5.7f };
-
-	Vector3 SpherecameraRotate2{ 0.26f,0.0f,0.0f };
-	Vector3 SpherecameraTranslate2{ 2.0f,0.8f,-6.49f };
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -862,54 +942,30 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		memcpy(preKeys, keys, 256);
 		Novice::GetHitKeyStateAll(keys);
 
-
 		///
 		/// ↓更新処理ここから
 		///
 
-		Vector3 project = Project(Subtract(point, segment.origin), segment.diff);
-		Vector3 closestPoint = ClosestPoint(point, segment);
+		Update(camera);
 
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("Point", &point.x, 0.01f);
-		ImGui::DragFloat3("Segment origin", &segment.origin.x, 0.01f);
-		ImGui::DragFloat3("Segment diff", &segment.diff.x, 0.01f);
-		ImGui::InputFloat3("Project", &project.x, "%.3f", ImGuiInputTextFlags_ReadOnly);
+		ImGui::DragFloat3("Sphere[0].Center", &spheres[0].center.x, 0.01f);
+		ImGui::DragFloat("Sphere[0].Radius", &spheres[0].radius, 0.01f);
+		ImGui::DragFloat3("Sphere[1].Center", &spheres[1].center.x, 0.01f);
+		ImGui::DragFloat("Sphere[1].Radius", &spheres[1].radius, 0.01f);
 		ImGui::End();
 
-		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
-
-		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+		Matrix4x4 viewMatrix = CalcViewMatrix(camera);
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
+
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
-		Vector3 start = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
-		Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
-
-		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		Novice::DrawLine(int(start.x), int(start.y), int(end.x), int(end.y), WHITE);
-		Matrix4x4 SpherecameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, SpherecameraRotate, SpherecameraTranslate);
-
-		Matrix4x4 SphereviewMatrix = Inverse(SpherecameraMatrix);
-		Matrix4x4 SphereprojectionMatrix = MakePerspectiveFovMatrix(0.65f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
-		Matrix4x4 SphereviewProjectionMatrix = Multiply(SphereviewMatrix, SphereprojectionMatrix);
-
-		Matrix4x4 SphereviewportMatrix = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
-		Sphere closestPointSphere{ closestPoint, 0.01f };
-
-		DrawSphere(closestPointSphere, SphereviewProjectionMatrix, SphereviewportMatrix, BLACK);
-		Matrix4x4 SpherecameraMatrix2 = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, SpherecameraRotate2, SpherecameraTranslate2);
-
-		Matrix4x4 SphereviewMatrix2 = Inverse(SpherecameraMatrix2);
-		Matrix4x4 SphereprojectionMatrix2 = MakePerspectiveFovMatrix(0.65f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
-		Matrix4x4 SphereviewProjectionMatrix2 = Multiply(SphereviewMatrix2, SphereprojectionMatrix2);
-
-		Matrix4x4 SphereviewportMatrix2 = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
-		Sphere pointSphere{ point, 0.01f };
-
-		DrawSphere(pointSphere, SphereviewProjectionMatrix2, SphereviewportMatrix2, RED);
+		uint32_t sphereColors[2]{ WHITE, WHITE };
+		if (IsCollision(spheres[0], spheres[1])) {
+			sphereColors[0] = RED;
+		}
 
 		///
 		/// ↑更新処理ここまで
@@ -918,6 +974,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
+
+		// 描画
+		DrawGrid(viewProjectionMatrix, viewportMatrix);
+		DrawSphere(spheres[0], viewProjectionMatrix, viewportMatrix, sphereColors[0]);
+		DrawSphere(spheres[1], viewProjectionMatrix, viewportMatrix, sphereColors[1]);
 
 		///
 		/// ↑描画処理ここまで
