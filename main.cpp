@@ -1,216 +1,289 @@
-#include<Novice.h>
+#include <Novice.h>
 #include <imgui.h>
-#include <corecrt_math.h>
-#include<cmath>
-#include"math.h"
+#include <iostream>
+#include <numbers>
 
-typedef struct Matrix4x4 {
+const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
+
+struct Vector3 {
+	float x;
+	float y;
+	float z;
+};
+
+struct Matrix4x4 {
 	float m[4][4];
-}Matrix4x4;
-
-typedef struct Vector3 {
-	float x, y, z;
-}Vector3;
-
-typedef struct Vector2 {
-	float x, y;
-}Vector2;
+};
 
 struct Sphere {
 	Vector3 center;
 	float radius;
 };
 
-struct SphericalCoordinate {
-	float theta;
-	float phi;
-	float radius;
-};
+//ビューポート行列
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
+	Matrix4x4 m = {};
 
-struct Camera {
-	static const int32_t kInvalidButton = -1;
-	SphericalCoordinate spherical{};
-	Vector3 center{};
+	m.m[0][0] = width / 2.0f;
+	m.m[0][1] = 0;
+	m.m[0][2] = 0;
+	m.m[0][3] = 0;
 
-	struct {
-		Vector2 mouse{};
-		SphericalCoordinate spherical{};
-		Vector3 center{};
-		int32_t button = kInvalidButton;
-	} capture;
-};
+	m.m[1][0] = 0;
+	m.m[1][1] = -height / 2.0f;
+	m.m[1][2] = 0;
+	m.m[1][3] = 0;
+
+	m.m[2][0] = 0;
+	m.m[2][1] = 0;
+	m.m[2][2] = maxDepth - minDepth;
+	m.m[2][3] = 0;
+
+	m.m[3][0] = left + (width / 2.0f);
+	m.m[3][1] = top + (height / 2.0f);
+	m.m[3][2] = minDepth;
+	m.m[3][3] = 1;
+
+	return m;
+}
+
+//クロス積の関数
+Vector3 Cross(const Vector3& v1, const Vector3& v2) {
+	return { v1.y * v2.z * v1.z * v2.y,
+		v1.z * v2.z * v2.x - v1.x * v2.z,
+		v1.x * v2.y - v1.y * v2.x
+	};
+}
+
+Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) {
+	Vector3 t;
+
+	t.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
+	t.y = vector.x * matrix.m[0][1] + vector.y * matrix.m[1][1] + vector.z * matrix.m[2][1] + 1.0f * matrix.m[3][1];
+	t.z = vector.x * matrix.m[0][2] + vector.y * matrix.m[1][2] + vector.z * matrix.m[2][2] + 1.0f * matrix.m[3][2];
+	float w = vector.x * matrix.m[0][3] + vector.y * matrix.m[1][3] + vector.z * matrix.m[2][3] + 1.0f * matrix.m[3][3];
+
+	assert(w != 0.0f);
+
+	t.x /= w;
+	t.y /= w;
+	t.z /= w;
+
+	return t;
+}
 
 //4x4拡大縮小行列
 Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
-	Matrix4x4 kakusyuku;
-	kakusyuku.m[0][0] = scale.x;
-	kakusyuku.m[0][1] = 0;
-	kakusyuku.m[0][2] = 0;
-	kakusyuku.m[0][3] = 0;
+	Matrix4x4 m;
 
-	kakusyuku.m[1][0] = 0;
-	kakusyuku.m[1][1] = scale.y;
-	kakusyuku.m[1][2] = 0;
-	kakusyuku.m[1][3] = 0;
+	m.m[0][0] = scale.x;
+	m.m[0][1] = 0;
+	m.m[0][2] = 0;
+	m.m[0][3] = 0;
 
-	kakusyuku.m[2][0] = 0;
-	kakusyuku.m[2][1] = 0;
-	kakusyuku.m[2][2] = scale.z;
-	kakusyuku.m[2][3] = 0;
+	m.m[1][0] = 0;
+	m.m[1][1] = scale.y;
+	m.m[1][2] = 0;
+	m.m[1][3] = 0;
 
-	kakusyuku.m[3][0] = 0;
-	kakusyuku.m[3][1] = 0;
-	kakusyuku.m[3][2] = 0;
-	kakusyuku.m[3][3] = 1;
+	m.m[2][0] = 0;
+	m.m[2][1] = 0;
+	m.m[2][2] = scale.z;
+	m.m[2][3] = 0;
 
-	return kakusyuku;
+	m.m[3][0] = 0;
+	m.m[3][1] = 0;
+	m.m[3][2] = 0;
+	m.m[3][3] = 1;
+
+	return m;
 }
 
 //X軸回転行列
 Matrix4x4 MakeRotateXMatrix(float radian) {
-	Matrix4x4 Xver;
-	Xver.m[0][0] = 1;
-	Xver.m[0][1] = 0;
-	Xver.m[0][2] = 0;
-	Xver.m[0][3] = 0;
+	Matrix4x4 m = {};
 
-	Xver.m[1][0] = 0;
-	Xver.m[1][1] = std::cos(radian);
-	Xver.m[1][2] = std::sin(radian);
-	Xver.m[1][3] = 0;
+	m.m[0][0] = 1;
+	m.m[0][1] = 0;
+	m.m[0][2] = 0;
+	m.m[0][3] = 0;
 
-	Xver.m[2][0] = 0;
-	Xver.m[2][1] = std::sin(-radian);
-	Xver.m[2][2] = std::cos(radian);
-	Xver.m[2][3] = 0;
+	m.m[1][0] = 0;
+	m.m[1][1] = std::cos(radian);
+	m.m[1][2] = std::sin(radian);
+	m.m[1][3] = 0;
 
-	Xver.m[3][0] = 0;
-	Xver.m[3][1] = 0;
-	Xver.m[3][2] = 0;
-	Xver.m[3][3] = 1;
+	m.m[2][0] = 0;
+	m.m[2][1] = std::sin(-radian);
+	m.m[2][2] = std::cos(radian);
+	m.m[2][3] = 0;
 
-	return Xver;
+	m.m[3][0] = 0;
+	m.m[3][1] = 0;
+	m.m[3][2] = 0;
+	m.m[3][3] = 1;
+
+	return m;
 }
 
 //Y軸回転行列
 Matrix4x4 MakeRotateYMatrix(float radian) {
-	Matrix4x4 Yver;
-	Yver.m[0][0] = std::cos(radian);
-	Yver.m[0][1] = 0;
-	Yver.m[0][2] = std::sin(-radian);
-	Yver.m[0][3] = 0;
+	Matrix4x4 m = {};
 
-	Yver.m[1][0] = 0;
-	Yver.m[1][1] = 1;
-	Yver.m[1][2] = 0;
-	Yver.m[1][3] = 0;
+	m.m[0][0] = std::cos(radian);
+	m.m[0][1] = 0;
+	m.m[0][2] = std::sin(-radian);
+	m.m[0][3] = 0;
 
-	Yver.m[2][0] = std::sin(radian);
-	Yver.m[2][1] = 0;
-	Yver.m[2][2] = std::cos(radian);
-	Yver.m[2][3] = 0;
+	m.m[1][0] = 0;
+	m.m[1][1] = 1;
+	m.m[1][2] = 0;
+	m.m[1][3] = 0;
 
-	Yver.m[3][0] = 0;
-	Yver.m[3][1] = 0;
-	Yver.m[3][2] = 0;
-	Yver.m[3][3] = 1;
+	m.m[2][0] = std::sin(radian);
+	m.m[2][1] = 0;
+	m.m[2][2] = std::cos(radian);
+	m.m[2][3] = 0;
 
-	return Yver;
+	m.m[3][0] = 0;
+	m.m[3][1] = 0;
+	m.m[3][2] = 0;
+	m.m[3][3] = 1;
+
+	return m;
 }
 
 //Z軸回転行列
 Matrix4x4 MakeRotateZMatrix(float radian) {
-	Matrix4x4 Zver;
-	Zver.m[0][0] = std::cos(radian);
-	Zver.m[0][1] = std::sin(radian);
-	Zver.m[0][2] = 0;
-	Zver.m[0][3] = 0;
+	Matrix4x4 m = {};
 
-	Zver.m[1][0] = std::sin(-radian);
-	Zver.m[1][1] = std::cos(radian);
-	Zver.m[1][2] = 0;
-	Zver.m[1][3] = 0;
+	m.m[0][0] = std::cos(radian);
+	m.m[0][1] = std::sin(radian);
+	m.m[0][2] = 0;
+	m.m[0][3] = 0;
 
-	Zver.m[2][0] = 0;
-	Zver.m[2][1] = 0;
-	Zver.m[2][2] = 1;
-	Zver.m[2][3] = 0;
+	m.m[1][0] = std::sin(-radian);
+	m.m[1][1] = std::cos(radian);
+	m.m[1][2] = 0;
+	m.m[1][3] = 0;
 
-	Zver.m[3][0] = 0;
-	Zver.m[3][1] = 0;
-	Zver.m[3][2] = 0;
-	Zver.m[3][3] = 1;
+	m.m[2][0] = 0;
+	m.m[2][1] = 0;
+	m.m[2][2] = 1;
+	m.m[2][3] = 0;
 
-	return Zver;
-}
+	m.m[3][0] = 0;
+	m.m[3][1] = 0;
+	m.m[3][2] = 0;
+	m.m[3][3] = 1;
 
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
-	Matrix4x4 result3;
-	for (int m = 0; m < 4; m++) {
-		for (int n = 0; n < 4; n++) {
-			result3.m[m][n] = 0;
-			for (int mn = 0; mn < 4; mn++) {
-				result3.m[m][n] += m1.m[m][mn] * m2.m[mn][n];
-			}
-		}
-	}
-
-	return result3;
+	return m;
 }
 
 Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
-	Matrix4x4 heikou;
-	heikou.m[0][0] = 1;
-	heikou.m[0][1] = 0;
-	heikou.m[0][2] = 0;
-	heikou.m[0][3] = 0;
 
-	heikou.m[1][0] = 0;
-	heikou.m[1][1] = 1;
-	heikou.m[1][2] = 0;
-	heikou.m[1][3] = 0;
+	Matrix4x4 m = {};
 
-	heikou.m[2][0] = 0;
-	heikou.m[2][1] = 0;
-	heikou.m[2][2] = 1;
-	heikou.m[2][3] = 0;
+	m.m[0][0] = 1;
+	m.m[0][1] = 0;
+	m.m[0][2] = 0;
+	m.m[0][3] = 0;
 
-	heikou.m[3][0] = translate.x;
-	heikou.m[3][1] = translate.y;
-	heikou.m[3][2] = translate.z;
-	heikou.m[3][3] = 1;
+	m.m[1][0] = 0;
+	m.m[1][1] = 1;
+	m.m[1][2] = 0;
+	m.m[1][3] = 0;
 
-	return heikou;
+	m.m[2][0] = 0;
+	m.m[2][1] = 0;
+	m.m[2][2] = 1;
+	m.m[2][3] = 0;
+
+	m.m[3][0] = translate.x;
+	m.m[3][1] = translate.y;
+	m.m[3][2] = translate.z;
+	m.m[3][3] = 1;
+
+	return m;
 }
 
+Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2) {
+
+	Matrix4x4 result{};
+
+	result.m[0][0] = matrix1.m[0][0] * matrix2.m[0][0] + matrix1.m[0][1] * matrix2.m[1][0] + matrix1.m[0][2] * matrix2.m[2][0] + matrix1.m[0][3] * matrix2.m[3][0];
+	result.m[0][1] = matrix1.m[0][0] * matrix2.m[0][1] + matrix1.m[0][1] * matrix2.m[1][1] + matrix1.m[0][2] * matrix2.m[2][1] + matrix1.m[0][3] * matrix2.m[3][1];
+	result.m[0][2] = matrix1.m[0][0] * matrix2.m[0][2] + matrix1.m[0][1] * matrix2.m[1][2] + matrix1.m[0][2] * matrix2.m[2][2] + matrix1.m[0][3] * matrix2.m[3][2];
+	result.m[0][3] = matrix1.m[0][0] * matrix2.m[0][3] + matrix1.m[0][1] * matrix2.m[1][3] + matrix1.m[0][2] * matrix2.m[2][3] + matrix1.m[0][3] * matrix2.m[3][3];
+
+	result.m[1][0] = matrix1.m[1][0] * matrix2.m[0][0] + matrix1.m[1][1] * matrix2.m[1][0] + matrix1.m[1][2] * matrix2.m[2][0] + matrix1.m[1][3] * matrix2.m[3][0];
+	result.m[1][1] = matrix1.m[1][0] * matrix2.m[0][1] + matrix1.m[1][1] * matrix2.m[1][1] + matrix1.m[1][2] * matrix2.m[2][1] + matrix1.m[1][3] * matrix2.m[3][1];
+	result.m[1][2] = matrix1.m[1][0] * matrix2.m[0][2] + matrix1.m[1][1] * matrix2.m[1][2] + matrix1.m[1][2] * matrix2.m[2][2] + matrix1.m[1][3] * matrix2.m[3][2];
+	result.m[1][3] = matrix1.m[1][0] * matrix2.m[0][3] + matrix1.m[1][1] * matrix2.m[1][3] + matrix1.m[1][2] * matrix2.m[2][3] + matrix1.m[1][3] * matrix2.m[3][3];
+
+	result.m[2][0] = matrix1.m[2][0] * matrix2.m[0][0] + matrix1.m[2][1] * matrix2.m[1][0] + matrix1.m[2][2] * matrix2.m[2][0] + matrix1.m[2][3] * matrix2.m[3][0];
+	result.m[2][1] = matrix1.m[2][0] * matrix2.m[0][1] + matrix1.m[2][1] * matrix2.m[1][1] + matrix1.m[2][2] * matrix2.m[2][1] + matrix1.m[2][3] * matrix2.m[3][1];
+	result.m[2][2] = matrix1.m[2][0] * matrix2.m[0][2] + matrix1.m[2][1] * matrix2.m[1][2] + matrix1.m[2][2] * matrix2.m[2][2] + matrix1.m[2][3] * matrix2.m[3][2];
+	result.m[2][3] = matrix1.m[2][0] * matrix2.m[0][3] + matrix1.m[2][1] * matrix2.m[1][3] + matrix1.m[2][2] * matrix2.m[2][3] + matrix1.m[2][3] * matrix2.m[3][3];
+
+	result.m[3][0] = matrix1.m[3][0] * matrix2.m[0][0] + matrix1.m[3][1] * matrix2.m[1][0] + matrix1.m[3][2] * matrix2.m[2][0] + matrix1.m[3][3] * matrix2.m[3][0];
+	result.m[3][1] = matrix1.m[3][0] * matrix2.m[0][1] + matrix1.m[3][1] * matrix2.m[1][1] + matrix1.m[3][2] * matrix2.m[2][1] + matrix1.m[3][3] * matrix2.m[3][1];
+	result.m[3][2] = matrix1.m[3][0] * matrix2.m[0][2] + matrix1.m[3][1] * matrix2.m[1][2] + matrix1.m[3][2] * matrix2.m[2][2] + matrix1.m[3][3] * matrix2.m[3][2];
+	result.m[3][3] = matrix1.m[3][0] * matrix2.m[0][3] + matrix1.m[3][1] * matrix2.m[1][3] + matrix1.m[3][2] * matrix2.m[2][3] + matrix1.m[3][3] * matrix2.m[3][3];
+
+	return result;
+}
+
+//アフィン変換
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
-	Matrix4x4 affine;
-	affine.m[0][0] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::sin(rotate.z))+ ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0)+ ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
-	affine.m[0][1] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * std::cos(rotate.z)) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
-	affine.m[0][2] = scale.x * (((1 * std::cos(rotate.y) + 0 * 0 + 0 * std::sin(rotate.y) + 0 * 0) * 0) + ((1 * 0 + 0 * 1 + 0 * 0 + 0 * 0) * 0) + ((1 * std::sin(-rotate.y) + 0 * 0 + 0 * std::cos(rotate.y) + 0 * 0) * 1) + ((1 * 0 + 0 * 0 + 0 * 0 + 0 * 1) * 0));
-	affine.m[0][3] = 0;
 
-	affine.m[1][0] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * std::sin(-rotate.z)) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[1][1] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * std::cos(rotate.z)) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[1][2] = scale.y * (((0 * std::cos(rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::sin(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::cos(rotate.x) * 1 + std::sin(rotate.x) * 0 + 0 * 0) * 0) + ((0 * std::sin(-rotate.y) + std::cos(rotate.x) * 0 + std::sin(rotate.x) * std::cos(rotate.y) + 0 * 0) * 1) + ((0 * 0 + std::cos(rotate.x) * 0 + std::sin(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[1][3] = 0;
+	Matrix4x4 s = {
+		scale.x,0,0,0,
+		0,scale.y,0,0,
+		0,0,scale.z,0,
+		0,0,0,1
+	};
 
-	affine.m[2][0] = scale.z * (((0 * std::cos(rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::cos(rotate.z)) + ((0 * 0 + std::sin(-rotate.x) * 1 + std::cos(rotate.x) * 0 + 0 * 0) * std::sin(-rotate.z)) + ((0 * std::sin(-rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[2][1] = scale.z * (((0 * std::cos(rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::sin(rotate.y) + 0 * 0) * std::sin(rotate.z)) + ((0 * 0 + std::sin(-rotate.x) * 1 + std::cos(rotate.x) * 0 + 0 * 0) * std::cos(rotate.z)) + ((0 * std::sin(-rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::cos(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[2][2] = scale.z * (((0 * std::cos(rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::sin(rotate.y) + 0 * 0) * 0) + ((0 * 0 + std::sin(-rotate.x) * 1 + std::cos(rotate.x) * 0 + 0 * 0) * 0) + ((0 * std::sin(-rotate.y) + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * std::cos(rotate.y) + 0 * 0) * 1) + ((0 * 0 + std::sin(-rotate.x) * 0 + std::cos(rotate.x) * 0 + 0 * 1) * 0));
-	affine.m[2][3] = 0;
+	Matrix4x4 rotateX = {
+		1,0,0,0,
+		0,std::cos(rotate.x),std::sin(rotate.x),0,
+		0,std::sin(-rotate.x),std::cos(rotate.x),0,
+		0,0,0,1
+	};
 
-	affine.m[3][0] = translate.x;
-	affine.m[3][1] = translate.y;
-	affine.m[3][2] = translate.z;
-	affine.m[3][3] = 1;
+	Matrix4x4 rotateY = {
+		std::cos(rotate.y),0,std::sin(-rotate.y),0,
+		0,1,0,0,
+		std::sin(rotate.y),0,std::cos(rotate.y),0,
+		0,0,0,1
+	};
 
-	return affine;
+	Matrix4x4 rotateZ = {
+		std::cos(rotate.z),std::sin(rotate.z),0,0,
+		std::sin(-rotate.z),std::cos(rotate.z),0,0,
+		0,0,1,0,
+		0,0,0,1
+	};
 
+	Matrix4x4 t{
+		1,0,0,0,
+		0,1,0,0,
+		0,0,1,0,
+		translate.x,translate.y,translate.z,1
+	};
+
+	Matrix4x4 r = {};
+	r = Multiply(rotateX, Multiply(rotateY, rotateZ));
+	Matrix4x4 sr = Multiply(s, r);
+	Matrix4x4 srt = Multiply(sr, t);
+
+	return srt;
 }
 
 Matrix4x4 Inverse(const Matrix4x4& m) {
+
 	Matrix4x4 inverse;
+
 	inverse.m[0][0] = (1 / ((m.m[0][0] * m.m[1][1] * m.m[2][2] * m.m[3][3]) + (m.m[0][0] * m.m[1][2] * m.m[2][3] * m.m[3][1])
 		+ (m.m[0][0] * m.m[1][3] * m.m[2][1] * m.m[3][2])
 		- (m.m[0][0] * m.m[1][3] * m.m[2][2] * m.m[3][1])
@@ -602,6 +675,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
 
 	Matrix4x4 tositoei;
+
 	tositoei.m[0][0] = (1 / aspectRatio) * cosf(fovY / 2.0f) / sinf(fovY / 2.0f);
 	tositoei.m[0][1] = 0;
 	tositoei.m[0][2] = 0;
@@ -625,76 +699,8 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 	return tositoei;
 }
 
-//正射影行列
-Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip) {
-
-	Matrix4x4 seisyaei;
-	seisyaei.m[0][0] = 2.0f / (right - left);
-	seisyaei.m[0][1] = 0;
-	seisyaei.m[0][2] = 0;
-	seisyaei.m[0][3] = 0;
-
-	seisyaei.m[1][0] = 0;
-	seisyaei.m[1][1] = 2.0f / (top - bottom);
-	seisyaei.m[1][2] = 0;
-	seisyaei.m[1][3] = 0;
-
-	seisyaei.m[2][0] = 0;
-	seisyaei.m[2][1] = 0;
-	seisyaei.m[2][2] = 1.0f / (farClip - nearClip);
-	seisyaei.m[2][3] = 0;
-
-	seisyaei.m[3][0] = (left + right) / (left - right);
-	seisyaei.m[3][1] = (top + bottom) / (bottom - top);
-	seisyaei.m[3][2] = nearClip / (nearClip - farClip);
-	seisyaei.m[3][3] = 1;
-
-	return seisyaei;
-}
-
-//ビューポート行列
-Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth) {
-
-	Matrix4x4 viewport;
-	viewport.m[0][0] = width / 2.0f;
-	viewport.m[0][1] = 0;
-	viewport.m[0][2] = 0;
-	viewport.m[0][3] = 0;
-
-	viewport.m[1][0] = 0;
-	viewport.m[1][1] = (-height / 2.0f);
-	viewport.m[1][2] = 0;
-	viewport.m[1][3] = 0;
-
-	viewport.m[2][0] = 0;
-	viewport.m[2][1] = 0;
-	viewport.m[2][2] = maxDepth - minDepth;
-	viewport.m[2][3] = 0;
-
-	viewport.m[3][0] = left + (width / 2.0f);
-	viewport.m[3][1] = top + (height / 2.0f);
-	viewport.m[3][2] = minDepth;
-	viewport.m[3][3] = 1;
-
-	return viewport;
-
-}
-
-Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) {
-	Vector3 result;
-	result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
-	result.y = vector.x * matrix.m[0][1] + vector.y * matrix.m[1][1] + vector.z * matrix.m[2][1] + 1.0f * matrix.m[3][1];
-	result.z = vector.x * matrix.m[0][2] + vector.y * matrix.m[1][2] + vector.z * matrix.m[2][2] + 1.0f * matrix.m[3][2];
-	float w = vector.x * matrix.m[0][3] + vector.y * matrix.m[1][3] + vector.z * matrix.m[2][3] + 1.0f * matrix.m[3][3];
-	assert(w != 0.0f);
-	result.x /= w;
-	result.y /= w;
-	result.z /= w;
-
-	return result;
-}
-
 void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
+
 	const float kGridHalfWidth = 2.0f;
 	const uint32_t kSubdivision = 10;
 	const float kGridEvery = (kGridHalfWidth * 2.0f) / float(kSubdivision);
@@ -728,25 +734,54 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 	}
 }
 
-const float pi = 3.14f;
+//足し算の関数
+Vector3 Add(Vector3& a, Vector3& b) {
+
+	Vector3 c = {};
+
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+
+	return c;
+}
+
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-	const uint32_t kSubdivision = 20;
-	const float kLonEvery = 2 * pi / kSubdivision;
-	const float kLatEvery = pi / kSubdivision;
 
+	float pi = std::numbers::pi_v<float>;
+	const uint32_t kSubdivision = 12;
 
-	for (uint32_t latIndex = 0; latIndex < kSubdivision; latIndex++) {
-		float lat = -pi / 2.0f + kLatEvery * latIndex;
-		float latNext = -pi / 2.0f + kLatEvery * (latIndex + 1);
+	const float kLonEvery = pi * 2.f / float(kSubdivision);
 
-		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; lonIndex++) {
+	const float kLatEveey = pi / float(kSubdivision);
+
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		float lat = -pi / 2.0f + kLatEveey * latIndex;
+
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
 			float lon = lonIndex * kLonEvery;
-			float lonNext = (lonIndex + 1) * kLonEvery;
 
-			//座標変換
-			Vector3 a = { sphere.radius * cosf(lat) * cosf(lon), sphere.radius * sinf(lat), sphere.radius * cosf(lat) * sinf(lon) };
-			Vector3 b = { sphere.radius * cosf(latNext) * cosf(lon), sphere.radius * sinf(latNext), sphere.radius * cosf(latNext) * sinf(lon) };
-			Vector3 c = { sphere.radius * cosf(lat) * cosf(lonNext), sphere.radius * sinf(lat), sphere.radius * cosf(lat) * sinf(lonNext) };
+
+			Vector3 a ={
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon),
+
+			};
+
+			Vector3 b ={
+				sphere.center.x + sphere.radius * std::cos(lat + kLatEveey) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat + kLatEveey),
+				sphere.center.z + sphere.radius * std::cos(lat + kLatEveey) * std::sin(lon),
+
+			};
+
+			Vector3 c ={
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon + kLonEvery),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon + kLonEvery),
+
+			};
 
 			Vector3 transforma = Transform(a, viewProjectionMatrix);
 			transforma = Transform(transforma, viewportMatrix);
@@ -754,184 +789,68 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 			transformb = Transform(transformb, viewportMatrix);
 			Vector3 transformc = Transform(c, viewProjectionMatrix);
 			transformc = Transform(transformc, viewportMatrix);
+
 			//スクリーン座標系まで変換したものを描画
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformb.x, (int)transformb.y, color);
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformc.x, (int)transformc.y, color);
+
 		}
 	}
 }
 
-Vector3 Add(const Vector3& v1, const Vector3& v2) {
-	Vector3 result1{ 0.0f,0.0f,0.0f };
-	result1.x = v1.x + v2.x;
-	result1.y = v1.y + v2.y;
-	result1.z = v1.z + v2.z;
-
-	return result1;
-}
-
-Vector2 Subtract(const Vector2& v1, const Vector2& v2) {
-	Vector2 result2{ 0.0f,0.0f };
-	result2.x = v1.x - v2.x;
-	result2.y = v1.y - v2.y;
-
-	return result2;
-}
-
-Vector3 Subtract(const Vector3& v1, const Vector3& v2) {
-	Vector3 result2{ 0.0f,0.0f,0.0f };
-	result2.x = v1.x - v2.x;
-	result2.y = v1.y - v2.y;
-	result2.z = v1.z - v2.z;
-
-	return result2;
-}
-
-Vector3 Multiply(float scalar, const Vector3& v) {
-	Vector3 result3{ 0.0f,0.0f,0.0f };
-	result3.x = v.x * scalar;
-	result3.y = v.y * scalar;
-	result3.z = v.z * scalar;
-
-	return result3;
-}
-
-Vector3 ToCartesian(const SphericalCoordinate& spherical) {
-	float sintheta = std::sin(spherical.theta);
-	float costheta = std::cos(spherical.theta);
-	float sinphi = std::sin(spherical.phi);
-	float cosphi = std::cos(spherical.phi);
-
-	float x = spherical.radius * sintheta * cosphi;
-	float y = spherical.radius * sintheta * sinphi;
-	float z = spherical.radius * costheta;
-
-	return { x, y, z };
-}
-
-Matrix4x4 CalcViewMatrix(const Camera& camera) {
-	Vector3 offset = ToCartesian(camera.spherical);
-
-	// ToCartesianでtheta,phiが0のときにZ=-1にするため、Z軸反転を行っているのでY軸回転を逆にする
-	Matrix4x4 viewMatrix =
-		Multiply(MakeRotateXMatrix(camera.spherical.theta), MakeRotateYMatrix(-camera.spherical.phi));
-
-	viewMatrix.m[3][0] = offset.x + camera.center.x;
-	viewMatrix.m[3][1] = offset.y + camera.center.y;
-	viewMatrix.m[3][2] = offset.z + camera.center.z;
-
-	return Inverse(viewMatrix);
-}
-
-void Update(Camera& camera) {
-
-	// スクロールはいつでも
-	int32_t wheel = Novice::GetWheel();
-
-	camera.spherical.radius -= (wheel / 512.0f);
-	camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
-
-	// ほかはAlt押してなければ何もしない
-	if (!Novice::CheckHitKey(DIK_LALT)) {
-		camera.capture.button = Camera::kInvalidButton;
-		return;
-	}
-	int mouseX, mouseY;
-	if (!Novice::GetMousePosition(&mouseX, &mouseY)) {
-		assert(false);
-		return;
-	}
-
-	if (camera.capture.button == Camera::kInvalidButton) {
-		if (Novice::IsPressMouse(0)) {
-			camera.capture.button = 0;
-		}
-		else if (Novice::IsPressMouse(1)) {
-			camera.capture.button = 1;
-		}
-		else if (Novice::IsPressMouse(2)) {
-			camera.capture.button = 2;
-		}
-
-		if (camera.capture.button != Camera::kInvalidButton) {
-			camera.capture.mouse.x = float(mouseX);
-			camera.capture.mouse.y = float(mouseY);
-			camera.capture.spherical = camera.spherical;
-			camera.capture.center = camera.center;
-		}
-	}
-	else {
-		if (Novice::IsPressMouse(camera.capture.button)) {
-			Vector2 mouse{ float(mouseX), float(mouseY) };
-			Vector2 diff = Subtract(camera.capture.mouse, mouse);
-
-			// 左クリック回転
-			if (camera.capture.button == 0) {
-				camera.spherical.theta = camera.capture.spherical.theta + (-diff.y / 360.0f);
-				camera.spherical.phi = camera.capture.spherical.phi + (diff.x / 320.0f);
-
-				// 右クリック拡縮
-			}
-			else if (camera.capture.button == 1) {
-				camera.spherical.radius =
-					camera.capture.spherical.radius + ((diff.x - diff.y) / 100.0f);
-				camera.spherical.radius = (std::max)(camera.spherical.radius, 0.1f);
-
-				// 中クリック移動
-			}
-			else if (camera.capture.button == 2) {
-				Matrix4x4 rotateMatrix = Multiply(
-					MakeRotateXMatrix(camera.capture.spherical.theta),
-					MakeRotateYMatrix(-camera.capture.spherical.phi));
-				Vector3 axisX{ 1.0f, 0.0f, 0.0f };
-				Vector3 axisY{ 0.0f, 1.0f, 0.0f };
-				Vector3 moveX = Transform(axisX, rotateMatrix);
-				Vector3 moveY = Transform(axisY, rotateMatrix);
-
-				Vector3 move =
-					Add(Multiply(diff.x / 320.0f, moveX), Multiply(-diff.y / 360.0f, moveY));
-				camera.center = Add(camera.capture.center, move);
-			}
-
-		}
-		else {
-			camera.capture.button = Camera::kInvalidButton;
-		}
-	}
+float Length(const Vector3& v) {
+	return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 bool IsCollision(const Sphere& s1, const Sphere& s2) {
-	float dx = s1.center.x - s2.center.x;
-	float dy = s1.center.y - s2.center.y;
-	float dz = s1.center.z - s2.center.z;
-	float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
-	return distance < (s1.radius + s2.radius);
+	Vector3 a = {};
+
+	a.x = s2.center.x - s1.center.x;
+	a.y = s2.center.y - s1.center.y;
+	a.z = s2.center.z - s1.center.z;
+
+	float d = Length(a);
+
+	if (d <= (s1.radius + s2.radius)) {
+		return d;
+	}
+
+	return false;
 }
 
-const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
+//printfの関数
+static const int kRowHeight = 20;
+static const int kColmnWidht = 100;
+static const int kWindowWidth = 1280;
+static const int kWindowHeight = 720;
+
+void VectorScreenPrintf(int x, int y, Vector3 vector) {
+	Novice::ScreenPrintf(x, y, "%.02f", vector.x);
+	Novice::ScreenPrintf(x + kColmnWidht, y, "%.02f", vector.y);
+	Novice::ScreenPrintf(x + kColmnWidht * 2, y, "%.02f", vector.z);
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-
 	// ライブラリの初期化
-	const int kWindowWidth = 1280;
-	const int kWindowHeight = 720;
 	Novice::Initialize(kWindowTitle, kWindowWidth, kWindowHeight);
 
 	// キー入力結果を受け取る箱
 	char keys[256] = { 0 };
 	char preKeys[256] = { 0 };
 
-	Sphere spheres[2]{
-	  {.center{0.0f, 0.0f, 0.0f}, .radius{0.6f}},
-	  {.center{0.8f, 0.0f, 1.0f}, .radius{0.4f}}
-	};
-	Vector3 point{ -1.5f, 0.6f, 0.6f };
+	Vector3 cameraTranslate{ 0.0f, 1.9f, -6.49f };
+	Vector3 cameraRotate{ 0.26f, 0.0f, 0.0f };
+	Vector3 rotate{};
+	Vector3 translate{};
 
-	Camera camera{};
-	camera.spherical.theta = 0.26f;
-	camera.spherical.radius = 7.0f;
+	Sphere sphere{ 0.f,0.0f,0.0f };
+	Sphere twoSphere{ 0.f,1.0f,0.0f };
+	Vector3 a = {};
+	sphere.radius = 0.5f;
+	twoSphere.radius = 0.3f;
+	uint32_t sphereColors[2]{ WHITE, WHITE };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -946,39 +865,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
-		Update(camera);
-
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("Sphere[0].Center", &spheres[0].center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &spheres[0].radius, 0.01f);
-		ImGui::DragFloat3("Sphere[1].Center", &spheres[1].center.x, 0.01f);
-		ImGui::DragFloat("Sphere[1].Radius", &spheres[1].radius, 0.01f);
+		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
+		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
+		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
+		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("Sphere[1].Center", &twoSphere.center.x, 0.01f);
+		ImGui::DragFloat("Sphere[1].Radius", &twoSphere.radius, 0.01f);
 		ImGui::End();
 
-		Matrix4x4 viewMatrix = CalcViewMatrix(camera);
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
+
+		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 
-
+		// ViewportMatrixを作る
 		Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
-		uint32_t sphereColors[2]{ WHITE, WHITE };
-		if (IsCollision(spheres[0], spheres[1])) {
+		if (IsCollision(sphere, twoSphere)) {
 			sphereColors[0] = RED;
+		}
+		else {
+			sphereColors[0] = WHITE;
 		}
 
 		///
 		/// ↑更新処理ここまで
 		///
-
 		///
 		/// ↓描画処理ここから
 		///
 
-		// 描画
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(spheres[0], viewProjectionMatrix, viewportMatrix, sphereColors[0]);
-		DrawSphere(spheres[1], viewProjectionMatrix, viewportMatrix, sphereColors[1]);
+		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColors[0]);
+		DrawSphere(twoSphere, viewProjectionMatrix, viewportMatrix, sphereColors[1]);
 
 		///
 		/// ↑描画処理ここまで
