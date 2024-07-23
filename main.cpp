@@ -26,6 +26,12 @@ struct Sphere {
 struct Plane {
 	Vector3 normal;
 	float distance;
+
+};
+
+struct Segment {
+	Vector3 origin;
+	Vector3 diff;
 };
 
 //ビューポート行列
@@ -57,7 +63,7 @@ Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, f
 }
 
 Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix){
-
+	
 	Vector3 t;
 
 	t.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
@@ -76,7 +82,7 @@ Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix){
 }
 
 Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2){
-	
+
 	Matrix4x4 result{};
 
 	result.m[0][0] = matrix1.m[0][0] * matrix2.m[0][0] + matrix1.m[0][1] * matrix2.m[1][0] + matrix1.m[0][2] * matrix2.m[2][0] + matrix1.m[0][3] * matrix2.m[3][0];
@@ -103,30 +109,30 @@ Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2){
 }
 
 //アフィン変換
-Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate) {
+Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Vector3& translate){
 
-	Matrix4x4 s = {
+	Matrix4x4 s ={
 		scale.x,0,0,0,
 		0,scale.y,0,0,
 		0,0,scale.z,0,
 		0,0,0,1
 	};
 
-	Matrix4x4 rotateX = {
+	Matrix4x4 rotateX ={
 		1,0,0,0,
 		0,std::cos(rotate.x),std::sin(rotate.x),0,
 		0,std::sin(-rotate.x),std::cos(rotate.x),0,
 		0,0,0,1
 	};
 
-	Matrix4x4 rotateY = {
+	Matrix4x4 rotateY ={
 		std::cos(rotate.y),0,std::sin(-rotate.y),0,
 		0,1,0,0,
 		std::sin(rotate.y),0,std::cos(rotate.y),0,
 		0,0,0,1
 	};
 
-	Matrix4x4 rotateZ = {
+	Matrix4x4 rotateZ ={
 		std::cos(rotate.z),std::sin(rotate.z),0,0,
 		std::sin(-rotate.z),std::cos(rotate.z),0,0,
 		0,0,1,0,
@@ -138,7 +144,6 @@ Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Vector3& rotate, const Ve
 		0,1,0,0,
 		0,0,1,0,
 		translate.x,translate.y,translate.z,1
-
 	};
 
 	Matrix4x4 r = {};
@@ -542,7 +547,7 @@ Matrix4x4 Inverse(const Matrix4x4& m) {
 
 //投資投影行列
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip, float farClip) {
-
+	
 	Matrix4x4 tositoei;
 
 	tositoei.m[0][0] = (1 / aspectRatio) * cosf(fovY / 2.0f) / sinf(fovY / 2.0f);
@@ -569,7 +574,7 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 }
 
 void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
-
+	
 	const float kGridHalfWidth = 2.0f;
 	const uint32_t kSubdivision = 10;
 	const float kGridEvery = (kGridHalfWidth * 2.0f) / float(kSubdivision);
@@ -604,7 +609,7 @@ void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMa
 }
 
 void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
-
+	
 	float pi = std::numbers::pi_v<float>;
 	const uint32_t kSubdivision = 12;
 
@@ -612,27 +617,29 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 
 	const float kLatEveey = pi / float(kSubdivision);
 
-	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex){
+		
 		float lat = -pi / 2.0f + kLatEveey * latIndex;
 
-		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex){
+			
 			float lon = lonIndex * kLonEvery;
 
-			Vector3 a = {
+			Vector3 a ={
 				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon),
 				sphere.center.y + sphere.radius * std::sin(lat),
 				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon),
 
 			};
 
-			Vector3 b = {
+			Vector3 b ={
 				sphere.center.x + sphere.radius * std::cos(lat + kLatEveey) * std::cos(lon),
 				sphere.center.y + sphere.radius * std::sin(lat + kLatEveey),
 				sphere.center.z + sphere.radius * std::cos(lat + kLatEveey) * std::sin(lon),
 
 			};
 
-			Vector3 c = {
+			Vector3 c ={
 				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon + kLonEvery),
 				sphere.center.y + sphere.radius * std::sin(lat),
 				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon + kLonEvery),
@@ -645,6 +652,7 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 			transformb = Transform(transformb, viewportMatrix);
 			Vector3 transformc = Transform(c, viewProjectionMatrix);
 			transformc = Transform(transformc, viewportMatrix);
+
 			//スクリーン座標系まで変換したものを描画
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformb.x, (int)transformb.y, color);
 			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformc.x, (int)transformc.y, color);
@@ -652,7 +660,7 @@ void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, con
 	}
 }
 
-Vector3 Negate(const Vector3& v) {
+Vector3 Negate(const Vector3& v){
 
 	Vector3 a{ -v.x,-v.y,-v.z };
 
@@ -660,7 +668,7 @@ Vector3 Negate(const Vector3& v) {
 }
 
 //加算
-Vector3 Add(const Vector3& v1, const Vector3& v2) {
+Vector3 Add(const Vector3& v1, const Vector3& v2){
 
 	Vector3 a{ v1.x + v2.x,v1.y + v2.y,v1.z + v2.z };
 
@@ -668,7 +676,7 @@ Vector3 Add(const Vector3& v1, const Vector3& v2) {
 }
 
 //スカラー倍
-Vector3 Multiply(float scalar, const Vector3& v) {
+Vector3 Multiply(float scalar, const Vector3& v){
 
 	Vector3 c = {};
 
@@ -680,21 +688,22 @@ Vector3 Multiply(float scalar, const Vector3& v) {
 }
 
 //内積
-float Dot(const Vector3& v1, const Vector3& v2) {
+float Dot(const Vector3& v1, const Vector3& v2){
 
-	float innerproduct = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+	float a = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 
-	return innerproduct;
+	return a;
 }
 
 //長さ(ノルム)
-float Length(const Vector3& v) {
+float Length(const Vector3& v){
 
 	return (float)sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 //正規化
-Vector3 Normalize(const Vector3& v) {
+Vector3 Normalize(const Vector3& v){
+
 	float m = Length(v);
 	Vector3 a;
 
@@ -706,15 +715,15 @@ Vector3 Normalize(const Vector3& v) {
 }
 
 //クロス積の関数
-Vector3 Cross(const Vector3& v1, const Vector3& v2) {
+Vector3 Cross(const Vector3& v1, const Vector3& v2){
 
 	return { v1.y * v2.z * v1.z * v2.y,
 		v1.z * v2.z * v2.x - v1.x * v2.z,
-		v1.x * v2.y - v1.y * v2.x
+		v1.x * v2.y - v1.y * v2.x 
 	};
 }
 
-void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color){
 
 	Vector3 perpediculars[4];
 	perpediculars[0] = Normalize(plane.normal);
@@ -724,27 +733,35 @@ void DrawPlane(const Plane& plane, const Matrix4x4& viewProjectionMatrix, const 
 
 	Vector3 center = Multiply(plane.distance, plane.normal);
 	Vector3 points[4] = {};
-
 	for (uint32_t index = 0; index < 4; ++index) {
 		Vector3 extend = Multiply(2.0f, perpediculars[index]);
 		Vector3 point = Add(center, extend);
 		points[index] = Transform(Transform(point, viewProjectionMatrix), viewportMatrix);
-
 	}
 
 	Novice::DrawLine(int(points[0].x), int(points[0].y), int(points[2].x), int(points[2].y), color);
 	Novice::DrawLine(int(points[1].x), int(points[1].y), int(points[2].x), int(points[2].y), color);
 	Novice::DrawLine(int(points[0].x), int(points[0].y), int(points[3].x), int(points[3].y), color);
 	Novice::DrawLine(int(points[1].x), int(points[1].y), int(points[3].x), int(points[3].y), color);
-
 }
 
-bool IsCollision(const Sphere& s1, const Plane& plane) {
+void DrawSegment(const Segment& segment, const Matrix4x4 viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color){
 
-	float a = Dot(s1.center, plane.normal);
-	float distane = std::abs(a - plane.distance);
+	Vector3 strat = Transform(Transform(segment.origin, viewProjectionMatrix), viewportMatrix);
+	Vector3 end = Transform(Transform(Add(segment.origin, segment.diff), viewProjectionMatrix), viewportMatrix);
+	Novice::DrawLine(int(strat.x), int(strat.y), int(end.x), int(end.y), color);
+}
 
-	return distane <= s1.radius;
+bool IsCollision(const Segment& segment, const Plane& plane) {
+	
+	float a = Dot(plane.normal, segment.diff);
+
+	if (a != 0.0f){
+		float t = (plane.distance - Dot(segment.origin, plane.normal));
+		return (t >= 0.0f && t <= 1.0f);
+	}
+
+	return false;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -762,10 +779,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 translate{};
 	Sphere sphere{ 0.f,0.0f,0.0f };
 	Plane plane{ 1.0f,3.0f,0.5f };
+	Segment segment{ 0.f,0.f,0.f };
 	Vector3 a = {};
 	sphere.radius = 0.4f;
 	plane.distance = 0.0f;
-	uint32_t sphereColor = WHITE;
+	segment.diff = { 1.f,1.f,1.f };
+	uint32_t segmentColor = WHITE;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -783,8 +802,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("CameraTranslate", &cameraTranslate.x, 0.01f);
 		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
-		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("&segment.diff.x", &segment.diff.x, 0.01f);
+		ImGui::DragFloat3("segment.origin.x", &segment.origin.x, 0.01f);
 		ImGui::DragFloat3("plane.normal", &plane.normal.x, 0.01f);
 		ImGui::DragFloat3("plane.distance", &plane.distance, 0.01f);
 		ImGui::End();
@@ -792,15 +811,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
-		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+		Matrix4x4 projectionMatrix =MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
-		Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
+		Matrix4x4 viewportMatrix =MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
-		if (IsCollision(sphere, plane)) {
-			sphereColor = RED;
+		if (IsCollision(segment, plane)) {
+			segmentColor = RED;
 		}
 		else {
-			sphereColor = WHITE;
+			segmentColor = WHITE;
 		}
 
 		///
@@ -809,10 +828,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
-
+		
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, sphereColor);
 		DrawPlane(plane, viewProjectionMatrix, viewportMatrix, WHITE);
+		DrawSegment(segment, viewProjectionMatrix, viewportMatrix, segmentColor);
 
 		///
 		/// ↑描画処理ここまで
