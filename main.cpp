@@ -4,6 +4,7 @@
 #include <cmath>
 #include <array>
 #include <utility>
+#include <numbers>
 
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
 
@@ -23,6 +24,11 @@ struct Matrix4x4 {
 struct AABB {
 	Vector3 min;
 	Vector3 max;
+};
+
+struct Sphere {
+	Vector3 center;
+	float radius;
 };
 
 //4x4拡大縮小行列
@@ -754,8 +760,78 @@ void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Mat
 	}
 }
 
-bool IsCollision(const AABB& aabb1, const AABB& aabb2) {
-	return (aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) && (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) && (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z);
+void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+
+	float pi = std::numbers::pi_v<float>;
+	const uint32_t kSubdivision = 12;
+
+	const float kLonEvery = pi * 2.f / float(kSubdivision);
+
+	const float kLatEveey = pi / float(kSubdivision);
+
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		float lat = -pi / 2.0f + kLatEveey * latIndex;
+
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+			float lon = lonIndex * kLonEvery;
+
+
+			Vector3 a = {
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon),
+
+			};
+
+			Vector3 b = {
+				sphere.center.x + sphere.radius * std::cos(lat + kLatEveey) * std::cos(lon),
+				sphere.center.y + sphere.radius * std::sin(lat + kLatEveey),
+				sphere.center.z + sphere.radius * std::cos(lat + kLatEveey) * std::sin(lon),
+
+			};
+
+			Vector3 c = {
+				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon + kLonEvery),
+				sphere.center.y + sphere.radius * std::sin(lat),
+				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon + kLonEvery),
+
+			};
+
+			Vector3 transforma = Transform(a, viewProjectionMatrix);
+			transforma = Transform(transforma, viewportMatrix);
+			Vector3 transformb = Transform(b, viewProjectionMatrix);
+			transformb = Transform(transformb, viewportMatrix);
+			Vector3 transformc = Transform(c, viewProjectionMatrix);
+			transformc = Transform(transformc, viewportMatrix);
+
+			//スクリーン座標系まで変換したものを描画
+			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformb.x, (int)transformb.y, color);
+			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformc.x, (int)transformc.y, color);
+
+		}
+	}
+}
+
+bool IsCollision(const AABB& aabb, const Sphere& sphere) {
+	auto clamp = [](float value, float min, float max) {
+		return (std::max)(min, (std::min)(value, max));
+		};
+
+	float closestX = clamp(sphere.center.x, aabb.min.x, aabb.max.x);
+	float closestY = clamp(sphere.center.y, aabb.min.y, aabb.max.y);
+	float closestZ = clamp(sphere.center.z, aabb.min.z, aabb.max.z);
+
+	float distanceX = closestX - sphere.center.x;
+	float distanceY = closestY - sphere.center.y;
+	float distanceZ = closestZ - sphere.center.z;
+
+	float distanceSquared = (distanceX * distanceX) + (distanceY * distanceY) + (distanceZ * distanceZ);
+
+	if (distanceSquared <= (sphere.radius * sphere.radius)) {
+		return distanceSquared;
+	}
+
+	return false;
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -772,12 +848,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 rotate{};
 	Vector3 translate{};
 
-	AABB aabb1 = {};
-	AABB aabb2 = {};
-	aabb1.max = { 1.0f,1.0f,1.0f };
-	aabb2.max = {};
-	aabb2.min = { 1.0f,1.0f,1.0f };
-
+	AABB aabb = {};
+	aabb.max = { 1.0f,1.0f,1.0f };
+	aabb.min = { 0.0f,0.0f,0.0f };
+	Sphere sphere{ 0.f,0.0f,0.0f };
+	sphere.radius = 0.4f;
 	uint32_t color = WHITE;
 
 	// ウィンドウの×ボタンが押されるまでループ
@@ -794,33 +869,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		ImGui::Begin("Window");
-		ImGui::DragFloat3("aabb1.min", &aabb1.min.x, 0.01f);
-		ImGui::DragFloat3("aabb1.max", &aabb1.max.x, 0.01f);
-		ImGui::DragFloat3("aabb2.min", &aabb2.min.x, 0.01f);
-		ImGui::DragFloat3("aabb2.max", &aabb2.max.x, 0.01f);
+		ImGui::DragFloat3("aabb1.min", &aabb.min.x, 0.01f);
+		ImGui::DragFloat3("aabb1.max", &aabb.max.x, 0.01f);
+		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
+		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
 		ImGui::End();
 
-		aabb1.min.x = (std::min)(aabb1.min.x, aabb1.max.x);
-		aabb1.min.y = (std::min)(aabb1.min.y, aabb1.max.y);
-		aabb1.min.z = (std::min)(aabb1.min.z, aabb1.max.z);
-		aabb1.max.x = (std::max)(aabb1.min.x, aabb1.max.x);
-		aabb1.max.y = (std::max)(aabb1.min.y, aabb1.max.y);
-		aabb1.max.z = (std::max)(aabb1.min.z, aabb1.max.z);
+		aabb.min.x = (std::min)(aabb.min.x, aabb.max.x);
+		aabb.min.y = (std::min)(aabb.min.y, aabb.max.y);
+		aabb.min.z = (std::min)(aabb.min.z, aabb.max.z);
+		aabb.max.x = (std::max)(aabb.min.x, aabb.max.x);
+		aabb.max.y = (std::max)(aabb.min.y, aabb.max.y);
+		aabb.max.z = (std::max)(aabb.min.z, aabb.max.z);
 
-		aabb2.min.x = (std::min)(aabb2.min.x, aabb2.max.x);
-		aabb2.min.y = (std::min)(aabb2.min.y, aabb2.max.y);
-		aabb2.min.z = (std::min)(aabb2.min.z, aabb2.max.z);
-		aabb2.max.x = (std::max)(aabb2.min.x, aabb2.max.x);
-		aabb2.max.y = (std::max)(aabb2.min.y, aabb2.max.y);
-		aabb2.max.z = (std::max)(aabb2.min.z, aabb2.max.z);
 		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraRotate, cameraTranslate);
 		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 
 		Matrix4x4 projectionMatrix =MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix =MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
-		
-		if (IsCollision(aabb1, aabb2)){
+
+		if (IsCollision(aabb, sphere)){
 			color = RED;
 		}
 		else{
@@ -835,8 +904,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawAABB(aabb1, viewProjectionMatrix, viewportMatrix, color);
-		DrawAABB(aabb2, viewProjectionMatrix, viewportMatrix, WHITE);
+		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, WHITE);
+		DrawAABB(aabb, viewProjectionMatrix, viewportMatrix, color);
 
 		///
 		/// ↑描画処理ここまで
