@@ -1,10 +1,10 @@
 #include <Novice.h>
 #include <imgui.h>
-#include <algorithm>
+#include <cstdint>
 #include <cmath>
+#include <algorithm>
 #include <array>
 #include <utility>
-#include <numbers>
 
 const char kWindowTitle[] = "GC2C_12_マインゴ_シズカ";
 
@@ -26,9 +26,9 @@ struct AABB {
 	Vector3 max;
 };
 
-struct Sphere {
-	Vector3 center;
-	float radius;
+struct Segment {
+	Vector3 origin;
+	Vector3 diff;
 };
 
 //4x4拡大縮小行列
@@ -760,78 +760,71 @@ void DrawAABB(const AABB& aabb, const Matrix4x4& viewProjectionMatrix, const Mat
 	}
 }
 
-void DrawSphere(const Sphere& sphere, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
+void DrawSegment(const Segment& segment, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix, uint32_t color) {
 
-	float pi = std::numbers::pi_v<float>;
-	const uint32_t kSubdivision = 12;
+	Vector3 start = segment.origin;
+	Vector3 end = { segment.origin.x + segment.diff.x, segment.origin.y + segment.diff.y, segment.origin.z + segment.diff.z };
 
-	const float kLonEvery = pi * 2.f / float(kSubdivision);
+	start = Transform(start, viewProjectionMatrix);
+	end = Transform(end, viewProjectionMatrix);
 
-	const float kLatEveey = pi / float(kSubdivision);
+	start = Transform(start, viewportMatrix);
+	end = Transform(end, viewportMatrix);
 
-	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
-		float lat = -pi / 2.0f + kLatEveey * latIndex;
-
-		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
-			float lon = lonIndex * kLonEvery;
-
-
-			Vector3 a = {
-				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon),
-				sphere.center.y + sphere.radius * std::sin(lat),
-				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon),
-
-			};
-
-			Vector3 b = {
-				sphere.center.x + sphere.radius * std::cos(lat + kLatEveey) * std::cos(lon),
-				sphere.center.y + sphere.radius * std::sin(lat + kLatEveey),
-				sphere.center.z + sphere.radius * std::cos(lat + kLatEveey) * std::sin(lon),
-
-			};
-
-			Vector3 c = {
-				sphere.center.x + sphere.radius * std::cos(lat) * std::cos(lon + kLonEvery),
-				sphere.center.y + sphere.radius * std::sin(lat),
-				sphere.center.z + sphere.radius * std::cos(lat) * std::sin(lon + kLonEvery),
-
-			};
-
-			Vector3 transforma = Transform(a, viewProjectionMatrix);
-			transforma = Transform(transforma, viewportMatrix);
-			Vector3 transformb = Transform(b, viewProjectionMatrix);
-			transformb = Transform(transformb, viewportMatrix);
-			Vector3 transformc = Transform(c, viewProjectionMatrix);
-			transformc = Transform(transformc, viewportMatrix);
-
-			//スクリーン座標系まで変換したものを描画
-			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformb.x, (int)transformb.y, color);
-			Novice::DrawLine((int)transforma.x, (int)transforma.y, (int)transformc.x, (int)transformc.y, color);
-
-		}
-	}
+	Novice::DrawLine(static_cast<int>(start.x), static_cast<int>(start.y), static_cast<int>(end.x), static_cast<int>(end.y), color);
 }
 
-bool IsCollision(const AABB& aabb, const Sphere& sphere) {
-	auto clamp = [](float value, float min, float max) {
-		return (std::max)(min, (std::min)(value, max));
-		};
+bool IsPointInsideAABB(const Vector3& point, const AABB& aabb) {
+	return (point.x <= aabb.max.x && point.x >= aabb.min.x) && (point.y <= aabb.max.y && point.y >= aabb.min.y) && (point.z <= aabb.max.z && point.z >= aabb.min.z);
+}
 
-	float closestX = clamp(sphere.center.x, aabb.min.x, aabb.max.x);
-	float closestY = clamp(sphere.center.y, aabb.min.y, aabb.max.y);
-	float closestZ = clamp(sphere.center.z, aabb.min.z, aabb.max.z);
+bool IsSegmentIntersectingAABB(const AABB& aabb, const Segment& segment) {
+	float tmin = (aabb.min.x - segment.origin.x) / segment.diff.x;
+	float tmax = (aabb.max.x - segment.origin.x) / segment.diff.x;
 
-	float distanceX = closestX - sphere.center.x;
-	float distanceY = closestY - sphere.center.y;
-	float distanceZ = closestZ - sphere.center.z;
+	if (tmin > tmax) std::swap(tmin, tmax);
 
-	float distanceSquared = (distanceX * distanceX) + (distanceY * distanceY) + (distanceZ * distanceZ);
+	float tymin = (aabb.min.y - segment.origin.y) / segment.diff.y;
+	float tymax = (aabb.max.y - segment.origin.y) / segment.diff.y;
 
-	if (distanceSquared <= (sphere.radius * sphere.radius)) {
-		return distanceSquared;
+	if (tymin > tymax) std::swap(tymin, tymax);
+
+	if ((tmin > tymax) || (tymin > tmax))
+		return false;
+
+	if (tymin > tmin)
+		tmin = tymin;
+
+	if (tymax < tmax)
+		tmax = tymax;
+
+	float tzmin = (aabb.min.z - segment.origin.z) / segment.diff.z;
+	float tzmax = (aabb.max.z - segment.origin.z) / segment.diff.z;
+
+	if (tzmin > tzmax)
+		std::swap(tzmin, tzmax);
+
+	if ((tmin > tzmax) || (tzmin > tmax))
+		return false;
+
+	if (tzmin > tmin)
+		tmin = tzmin;
+
+	if (tzmax < tmax)
+		tmax = tzmax;
+
+	return tmax >= 0;
+}
+
+bool IsCollision(const AABB& aabb, const Segment& segment) {
+	Vector3 start = segment.origin;
+	Vector3 end = { segment.origin.x + segment.diff.x, segment.origin.y + segment.diff.y, segment.origin.z + segment.diff.z };
+
+	if (IsPointInsideAABB(start, aabb) || IsPointInsideAABB(end, aabb)) {
+		return true;
 	}
 
-	return false;
+	return IsSegmentIntersectingAABB(aabb, segment);
 }
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -849,10 +842,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 translate{};
 
 	AABB aabb = {};
-	aabb.max = { 1.0f,1.0f,1.0f };
-	aabb.min = { 0.0f,0.0f,0.0f };
-	Sphere sphere{ 0.f,0.0f,0.0f };
-	sphere.radius = 0.4f;
+	aabb.max = { 0.5f,0.5f,0.5f };
+	aabb.min = { -0.5f,-0.5f,-0.5f };
+	Segment segment{ 0.f,0.f,0.f };
+	segment.diff = { 1.f,1.f,1.f };
+	segment.origin = { 2.0f,-0.5f,0.0f };
 	uint32_t color = WHITE;
 
 	// ウィンドウの×ボタンが押されるまでループ
@@ -871,8 +865,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("Window");
 		ImGui::DragFloat3("aabb1.min", &aabb.min.x, 0.01f);
 		ImGui::DragFloat3("aabb1.max", &aabb.max.x, 0.01f);
-		ImGui::DragFloat3("Sphere[0].Center", &sphere.center.x, 0.01f);
-		ImGui::DragFloat("Sphere[0].Radius", &sphere.radius, 0.01f);
+		ImGui::DragFloat3("segment.diff.x", &segment.diff.x, 0.01f);
+		ImGui::DragFloat("segment.origin.x", &segment.origin.x, 0.01f);
 		ImGui::End();
 
 		aabb.min.x = (std::min)(aabb.min.x, aabb.max.x);
@@ -889,7 +883,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
 		Matrix4x4 viewportMatrix =MakeViewportMatrix(0, 0, float(kWindowWidth), float(kWindowHeight), 0.0f, 1.0f);
 
-		if (IsCollision(aabb, sphere)){
+		if (IsCollision(aabb, segment)){
 			color = RED;
 		}
 		else{
@@ -899,14 +893,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↑更新処理ここまで
 		///
+	
 		///
 		/// ↓描画処理ここから
 		///
-
+		
 		DrawGrid(viewProjectionMatrix, viewportMatrix);
-		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, WHITE);
 		DrawAABB(aabb, viewProjectionMatrix, viewportMatrix, color);
-
+		DrawSegment(segment, viewProjectionMatrix, viewportMatrix, color);
+		
 		///
 		/// ↑描画処理ここまで
 		///
